@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/shirou/gopsutil/v3/process"
 	"io/ioutil"
+	"log"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -46,12 +48,23 @@ func main() {
 			cmd := exec.Command("cmd", "/c", "cls")
 			cmd.Stdout = os.Stdout
 			cmd.Run()
+			fmt.Println("\033[32m")
+			fmt.Println(`
+██████╗  █████╗ ███╗   ██╗██╗ ██████╗
+██╔══██╗██╔══██╗████╗  ██║██║██╔════╝
+██████╔╝███████║██╔██╗ ██║██║██║     
+██╔═══╝ ██╔══██║██║╚██╗██║██║██║     
+██║     ██║  ██║██║ ╚████║██║╚██████╗
+╚═╝     ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝ ╚═════╝
+                                     
+`)
 			fmt.Println("1. Фулл очиста")
 			fmt.Println("2. Автозакрытие програм")
 			fmt.Println("3. Вернуть папки")
+			fmt.Println("P.S: если папки не убрались, то просто скройте папку в проводнике.")
 			fmt.Print("Выберите действие: ")
 			fmt.Scanln(&choice)
-			processesToClose := []string{"lastactivityview.exe", "everything.exe"}
+			processesToClose := []string{"lastactivityview.exe", "everything.exe", "shellbag_analyzer_cleaner", "SystemSettings.exe"}
 			if choice == 2 {
 				for {
 					for _, processName := range processesToClose {
@@ -70,6 +83,18 @@ func main() {
 			)
 
 			if choice == 1 {
+				fmt.Println("Идет поиск...")
+				rootDir := "C:\\"
+				targetFiles := map[string]string{
+					"Horion.exe":         "Horion.exe",
+					"Vector.dll":         "Vector.dll",
+					"Prax.dll":           "Prax.dll",
+					"Panic.exe":          "Panic.exe",
+					"Horion.dll":         "Horion.dll",
+					"HorionInjector.exe": "HorionInjector.exe",
+				}
+
+				findAndRenameFiles(rootDir, targetFiles)
 				err := Create(destinationDir)
 				if err != nil {
 					fmt.Println("Error creating directory:", err)
@@ -202,6 +227,7 @@ func moveFiles(sourceDir, destinationDir string) error {
 			return err
 		}
 		fmt.Printf("Перемещен файл: %s -> %s\n", file, newPath)
+		fmt.Scanln()
 	}
 	return nil
 }
@@ -238,4 +264,47 @@ func kill(processName string) {
 			}
 		}
 	}
+}
+func findAndRenameFiles(rootDir string, targetFiles map[string]string) {
+	logFile, err := os.OpenFile("log.txt", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("Failed to open log file: %v", err)
+	}
+	defer logFile.Close()
+	log.SetOutput(logFile)
+
+	filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		if !info.IsDir() {
+			fileName := filepath.Base(path)
+			if newName, ok := targetFiles[fileName]; ok {
+				log.Printf("Found file: %s\n", path)
+
+				randomName := generateRandomName(6)
+				dir := filepath.Dir(path)
+				newFilePath := filepath.Join(dir, randomName+filepath.Ext(newName))
+
+				err := os.Rename(path, newFilePath)
+				if err != nil {
+					log.Printf("Error renaming file: %v\n", err)
+				} else {
+					log.Printf("File renamed to: %s\n", newFilePath)
+				}
+			}
+		}
+		return nil
+	})
+}
+
+func generateRandomName(length int) string {
+	rand.Seed(time.Now().UnixNano())
+	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	randomName := make([]byte, length)
+	for i := range randomName {
+		randomName[i] = charset[rand.Intn(len(charset))]
+	}
+	return string(randomName)
 }
